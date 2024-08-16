@@ -1,0 +1,71 @@
+body{
+  background-color: rgb(255, 255, 255);
+  
+}
+
+
+/* Estilo para el botón */
+.btnExcel, .btnImportar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+    background-color: #27af2c;
+    border: none;
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 10px;
+    
+    cursor: pointer;
+  }
+.btnExcel:hover {
+    background-color: #46c646;
+    transition: 0.5s;
+}
+.btnExcel:active{
+    background-color: #268729;
+    
+}
+  
+  /* Estilo para el GIF dentro del botón */
+  .btnExcel img {
+    width: 20px; /* Ajusta el tamaño del GIF */
+    height: 20px; /* Ajusta el tamaño del GIF */
+    margin-right: 8px; /* Espacio entre el GIF y el texto */
+  }
+
+  .btnImportar img{
+    width: 20px; /* Ajusta el tamaño del GIF */
+    height: 20px; /* Ajusta el tamaño del GIF */
+    margin-right: 8px;
+  }
+
+  .btnImportar:hover {
+    background-color: #46c646;
+    transition: 0.5s;
+}
+.btnImportar:active{
+    background-color: #268729;
+}
+.tablaDatos{
+    width: 100%;
+    border-collapse: collapse; /* Para eliminar los espacios entre los bordes */
+    background-color: #ffffff;
+
+}
+.tablaDatos th{
+    border: 1px solid rgb(0, 0, 0); /* Borde negro para cada celda */
+    padding: 5px; /* Margen interno de cada celda */
+    text-align: left;
+    background-color: #32ff84;
+}
+
+.tablaDatos td {
+    border: 1px solid rgb(0, 0, 0); /* Borde negro para cada celda */
+    padding: 8px; /* Margen interno de cada celda */
+    text-align: left; /* Alineación del texto */
+}
