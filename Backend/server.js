@@ -1,51 +1,61 @@
-//const express = require('express');
-//const fetch = require('node-fetch');
 import express from 'express';
-import fetch from 'node-fetch';
-import multer from 'multer';
-import fs from 'fs';
-import path from 'path';
-
-const dotenv = await import('dotenv');
-dotenv.config();
-
+import axios from 'axios';
 const app = express();
-const PORT = process.env.PORT || 3021;
+const PORT = 3021; 
 
 app.use(express.json());
-const upload = multer({ dest: 'uploads/' });
 
-app.post('/extract-pdf', upload.single('pdfFile'), async(req,res)=>{
-    const pdfFilePath = req.file.path;
+app.post('/createJob', async (req, res) => {
+    try {
+        const assetID = req.body.assetID || 'urn:aaid:AS:UE1:493a0607-f703-4723-bdc5-f5b04aa02b5d';
+        const jobOptions = {
+            assetID: assetID,
+            getCharBounds: false,
+            includeStyling: false,
+            elementsToExtract: [
+                "text",
+                "tables"
+            ],
+            tableOutputFormat: "xlsx",
+            renditionsToExtract: [
+                "tables",
+                "figures"
+            ],
+            includeHeaderFooter: false,
+            tagEncapsulatedText: [
+                "Figure"
+            ],
+            notifiers: [
+                {
+                    type: "CALLBACK",
+                    data: {
+                        url: "https://webhook.site/tu-unique-url",
+                        headers: {
+                            "x-api-key": process.env.API_KEY,
+                            "access-token": process.env.ACCESS_TOKEN
+                        }
+                    }
+                }
+            ]
+        };
 
-    try{
-        const pdfFileBuffer = fs.readFileSync(pdfFilePath);
-        const response = await fetch('https://pdf-services-ue1.adobe.io/operation/extractpdf',{
-            method: 'POST',
-            headers:{
-                'Authorization': `Bearer ${process.env.ACCESS_TOKEN}`,
-                'X-API-KEY': process.env.API_KEY,
-                'Content-Type': 'application/pdf',
-            },
-            body: pdfFileBuffer,
-        });
+        const config = {
+            headers: {
+                'Authorization': `Bearer ${process.env.ACCESS_TOKEN}`, //TOKEN DE ACCESO
+                'Content-Type': 'application/json',
+                'x-api-key': process.env.API_KEY //API KEY
+            }
+        };
 
-        if(!response.ok){
-            const errorBody = await response.text();
-            throw new Error(`ERROR HTTP, ESTADO: ${response.status}, RESPUESTA: ${errorBody}`);
-        }
+        const response = await axios.post('https://pdf-services-ue1.adobe.io/operation/createJob', jobOptions, config);
 
-        const data = await response.json();
-        res.status(200).json(data);
-    }catch(error){
-        console.error('Error:', error);
-        res.status(500).json({ error: error.message });
-    }finally{
-        fs.unlinkSync(pdfFilePath);
+        res.status(200).send({ message: 'Trabajo creado exitosamente', data: response.data });
+    } catch (error) {
+        console.error('Error:', error.response ? error.response.data : error.message);
+        res.status(500).send({ error: error.response ? error.response.data : error.message });
     }
 });
 
-//INICIALIZACION DEL SERVIDOR
-app.listen(PORT, () =>{
-    console.log(`Servidor jalando en http://localhost:${PORT}`);
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
