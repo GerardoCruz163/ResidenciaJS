@@ -3,18 +3,19 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import stream from 'stream';
-
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3021;
+const port = process.env.PORT || 8080;
 
 app.use(express.json());
 
 //TOKEN DE ACCESO GLOBAL
 let tokenAcceso='';
+let preURIUrl='';
 
 //OBTENER TOKEN NUEVO
 async function getToken(){
@@ -33,6 +34,7 @@ async function getToken(){
         const response = await axios.post(endpoint, params);
         //GUARDO EL TOKEN EN LA VARIABLE GLOBAL
         tokenAcceso =response.data.access_token;
+        
         //muestro el token nuevo en la consola
         console.log('Token de acceso nuevo: ',tokenAcceso);
         return tokenAcceso;
@@ -40,82 +42,70 @@ async function getToken(){
         console.error('Error durante el proceso. Error: ', error);
         throw error;
     }
-}
+}  
 
-//OBTENER PREURI
-app.post('/preURI', async (req, res) => {
+//SOLICITUD A PRE URI
+async function preURI() {
+
     try {
-        const preURIEndpoint = 'https://pdf-services-ue1.adobe.io/assets';
-        const mediaType = req.body.mediaType;
-
-        if (!mediaType) {
-            return res.status(400).json({ error: 'Falta el parametro mediaType en el cuerpo de la solicitud' });
-        }
-
-        if (!tokenAcceso) {
-            return res.status(400).json({ error: 'Token de acceso no disponible' });
-        }
-
-        console.log('Token de acceso:', tokenAcceso);
-        console.log('API Key:', process.env.API_KEY);
-
+        //const url ='';
+        const port = process.env.PORT || 8080;
+        const preURIEndpoint = `https://pdf-services-ue1.adobe.io/assets`;
+        const body = { 'mediaType': 'application/pdf' };
+        const bodyJson = JSON.stringify(body);
         const headers = {
-            'Authorization': `Bearer ${tokenAcceso}`, // Token de acceso
+            'Authorization': `Bearer ${tokenAcceso}`,
             'x-api-key': process.env.API_KEY,
             'Content-Type': 'application/json'
         };
+        
+        console.log('\n\n');
 
-        const body = {
-            mediaType: mediaType
-        };
-
-        const response = await axios.post(preURIEndpoint, body, { headers });
-
-        console.log('Respuesta de url: ', response.data.uploadUri);
-        res.json(response.data);
+        const response = await axios.post(preURIEndpoint, bodyJson, { headers });
+        preURIUrl = response.data.uploadUri;
+        console.log('Respuesta de preURI: ', preURIUrl);
+        return preURIUrl;
     } catch (error) {
-        console.error('Error al crear URL ', error.response ? error.response.data : error.message);
-        res.status(500).json({ error: 'Error interno del servidor' });
-    }
-});
-
-
-//SOLICITUD A PRE URI
-async function preURI(){
-    try{
-        const preURIEndpoint = 'http://localhost:3021/preURI';
-        const body = {mediaType: 'application/pdf'};
-        const headers= {
-            'Authorization': `Bearer ${tokenAcceso}`,
-            'x-api-key': `${process.env.API_KEY}`,
-            'Content-Type': 'application/json'
-        };
-
-        const response = await axios.post(preURIEndpoint, body, { headers });
-        console.log('Respuesta de preURI: ',response.data.uploadUri);
-    }catch(error){
+        console.log('Error capturado en el catch.');
         console.error('Error durante la solicitud a /preURI:', {
-            message: error.message,
+            message: error.message || 'No hay mensaje',
+            stack: error.stack || 'No hay traza',
+            config: error.config || 'No hay configuración',
+            code: error.code || 'No hay código de error',
             response: error.response ? {
                 status: error.response.status,
                 data: error.response.data,
                 headers: error.response.headers
-            } : undefined
+            } : 'No hay respuesta'
         });
+    }
+}
+
+//SUBIR ARCHIVO
+async function uploadAsset(uploadUri){
+    try{
+        const filePath = path.join(__dirname, '/CRONOGRAMA.pdf');
+        const fileStream = fs.createReadStream(filePath);
+
+        const headers={
+            'Content-Type': 'application/pdf'
+        };
+
+        const response = await axios.put(uploadUri, fileStream, { headers });
+        console.log('Archivo importado! ', response.status);
+    }catch(error) {
+        console.error('Error al subir el archivo:', error.response ? error.response.data : error.message);
     }
 }
 
 async function startServer() {
     try {
-        await getToken(); // Esperar a obtener el token
-        await preURI();  // Esperar a realizar la solicitud preURI
-
         app.listen(port, () => {
             console.log(`Servidor en el puerto: ${port}`);
-
-            console.log('Token de acceso:', tokenAcceso);
-            console.log('API Key:', process.env.API_KEY);
         });
+        await getToken(); // Esperar a obtener el token
+        await preURI();  // Esperar a realizar la solicitud preURI
+        await uploadAsset(preURIUrl);
     } catch (error) {
         console.error('Error al iniciar servidor: ', error);
     }
