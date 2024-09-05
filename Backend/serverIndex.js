@@ -5,6 +5,7 @@ import path from 'path';
 import stream from 'stream';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
+import multer from 'multer';
 
 dotenv.config();
 
@@ -13,9 +14,13 @@ const port = process.env.PORT || 8080;
 
 app.use(express.json());
 
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
 //TOKEN DE ACCESO GLOBAL
 let tokenAcceso='';
 let preURIUrl='';
+let assetID='';
 
 //OBTENER TOKEN NUEVO
 async function getToken(){
@@ -34,9 +39,12 @@ async function getToken(){
         const response = await axios.post(endpoint, params);
         //GUARDO EL TOKEN EN LA VARIABLE GLOBAL
         tokenAcceso =response.data.access_token;
+
         
         //muestro el token nuevo en la consola
         console.log('Token de acceso nuevo: ',tokenAcceso);
+        //console.log('Token expira en: ', tokenExpiraEn);
+
         return tokenAcceso;
     }catch(error){
         console.error('Error durante el proceso. Error: ', error);
@@ -48,21 +56,20 @@ async function getToken(){
 async function preURI() {
 
     try {
-        //const url ='';
-        const port = process.env.PORT || 8080;
+        //const port = process.env.PORT || 8080;
         const preURIEndpoint = `https://pdf-services-ue1.adobe.io/assets`;
         const body = { 'mediaType': 'application/pdf' };
-        const bodyJson = JSON.stringify(body);
         const headers = {
             'Authorization': `Bearer ${tokenAcceso}`,
             'x-api-key': process.env.API_KEY,
             'Content-Type': 'application/json'
         };
         
-        console.log('\n\n');
+        console.log('\n');
 
-        const response = await axios.post(preURIEndpoint, bodyJson, { headers });
+        const response = await axios.post(preURIEndpoint, body, { headers });
         preURIUrl = response.data.uploadUri;
+        assetID=response.data.assetID;
         console.log('Respuesta de preURI: ', preURIUrl);
         return preURIUrl;
     } catch (error) {
@@ -81,22 +88,57 @@ async function preURI() {
     }
 }
 
+// CARGA DEL ARCHIVO
 //SUBIR ARCHIVO
-async function uploadAsset(uploadUri){
+async function uploadAsset(uploadUri, fileBuffer){
     try{
-        const filePath = path.join(__dirname, '/CRONOGRAMA.pdf');
-        const fileStream = fs.createReadStream(filePath);
-
-        const headers={
+        const headers= {
             'Content-Type': 'application/pdf'
         };
 
-        const response = await axios.put(uploadUri, fileStream, { headers });
+        const response = await axios.put(uploadUri, fileBuffer, { headers })
         console.log('Archivo importado! ', response.status);
+        console.log('')
     }catch(error) {
         console.error('Error al subir el archivo:', error.response ? error.response.data : error.message);
     }
 }
+//CARGA EL PDF DE EJEMPLO
+async function uploadSamplePDF() {
+    try {
+        const sampleFilePath = path.join(__dirname, 'Downloads', 'PDF_EJEMPLO.pdf');
+        const fileBuffer = fs.readFileSync(sampleFilePath);
+
+        if (!preURIUrl) {
+            throw new Error('URL de subida no disponible.');
+        }
+
+        await uploadAsset(preURIUrl, fileBuffer);
+        console.log('Archivo PDF de muestra subido exitosamente.');
+    } catch (error) {
+        console.error('Error al subir el archivo PDF de muestra:', error.message);
+    }
+}
+
+// RUTA PARA RECIBIR EL ARCHIVO Y SUBIRLO
+app.post('/uploadAsset', upload.single('pdf'), async (req, res) => {
+    try {
+        const fileBuffer = req.file.buffer; // Archivo PDF en binario
+        const uploadUri = req.body.uploadUri; // Debes proporcionar la URL de subida
+
+        if (!uploadUri) {
+            return res.status(400).send('No se proporcionó la URL de subida.');
+        }
+
+        // Subir el archivo usando la URL proporcionada
+        await uploadAsset(uploadUri, fileBuffer);
+
+        res.status(200).send('Archivo subido con éxito.');
+    } catch (error) {
+        console.error('Error en la ruta /uploadAsset:', error.message);
+        res.status(500).send('Error al subir el archivo.');
+    }
+});
 
 async function startServer() {
     try {

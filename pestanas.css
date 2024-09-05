@@ -1,10 +1,11 @@
 body{
-  background-color: #122572;
+  background-color: #1c2650;
 }
 
 .encabezado{
   position: absolute;
-  backdrop-filter: blur(20px);
+  /*backdrop-filter: blur(20px);*/
+  background-color: #1c2650;
   color: #ffffff;
   height: 100px;
   width: 100vw;
