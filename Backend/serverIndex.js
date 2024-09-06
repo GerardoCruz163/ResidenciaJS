@@ -6,8 +6,13 @@ import stream from 'stream';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
+import { dirname } from 'path';
+
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -21,6 +26,7 @@ const upload = multer({ storage });
 let tokenAcceso='';
 let preURIUrl='';
 let assetID='';
+let locationURL='';//OBTENIDA DE CREATEJOB
 
 //OBTENER TOKEN NUEVO
 async function getToken(){
@@ -51,7 +57,6 @@ async function getToken(){
         throw error;
     }
 }  
-
 //SOLICITUD A PRE URI
 async function preURI() {
 
@@ -87,7 +92,6 @@ async function preURI() {
         });
     }
 }
-
 // CARGA DEL ARCHIVO
 //SUBIR ARCHIVO
 async function uploadAsset(uploadUri, fileBuffer){
@@ -106,7 +110,7 @@ async function uploadAsset(uploadUri, fileBuffer){
 //CARGA EL PDF DE EJEMPLO
 async function uploadSamplePDF() {
     try {
-        const sampleFilePath = path.join(__dirname, 'Downloads', 'PDF_EJEMPLO.pdf');
+        const sampleFilePath = path.join(__dirname, 'PDF_EJEMPLO.pdf');
         const fileBuffer = fs.readFileSync(sampleFilePath);
 
         if (!preURIUrl) {
@@ -140,6 +144,108 @@ app.post('/uploadAsset', upload.single('pdf'), async (req, res) => {
     }
 });
 
+async function createJob(assetID) {
+    try {
+        const endpoint = 'https://pdf-services-ue1.adobe.io/operation/extractpdf';
+        const jobData = {
+            assetID: assetID,
+            getCharBounds: false,
+            includeStyling: false,
+            elementsToExtract: [
+                'text',
+                'tables'
+            ],
+            tableOutputFormat: 'xlsx',
+            renditionsToExtract: [
+                'tables',
+                'figures'
+            ],
+            notifiers: [
+                {
+                    type: 'CALLBACK',
+                    data: {
+                        url: 'https://dummy.callback.org/',
+                        headers: {
+                            'x-api-key': 'dummykey',
+                            'access-token': 'dummytoken'
+                        }
+                    }
+                }
+            ]
+        };
+        const headers = {
+            'Authorization': `Bearer ${tokenAcceso}`,
+            'x-api-key': process.env.API_KEY,
+            'Content-Type': 'application/json'
+        };
+        const response = await axios.post(endpoint, jobData, { headers });
+        const jobLocation = response.headers.location;
+        locationURL = response.headers.location;
+        console.log('Trabajo creado exitosamente. Location:', jobLocation);
+        return jobLocation;
+    } catch (error) {
+        console.error('Error al crear el trabajo:', error.response ? error.response.data : error.message);
+    }
+}
+//RUTA PARA CREATEJOB
+app.post('/createJob', async (req,res)=>{
+    try{
+        const assetID=await preURI();
+        const jobLocation =await createJob(assetID);
+
+        if (jobLocation) {
+            res.status(200).send({ message: 'Trabajo creado exitosamente.', location: jobLocation });
+        } else {
+            res.status(500).send({ message: 'Error al crear el trabajo.' });
+        }
+    }catch(error){
+        console.error('Error en la ruta /createJob:', error.message);
+        res.status(500).send('Error al crear el trabajo.');
+    }
+});
+
+//getStatusJob
+async function getStatusJob(locationURL){
+    try{
+        const headers={
+            'Authorization': `Bearer ${tokenAcceso}`,
+            'x-api-key': process.env.API_KEY
+        }
+
+        const response = await axios.get(locationURL,{headers});
+        console.log('Estado del trabajo:', response.data);
+        
+        return response.data;
+    }catch(error){
+        console.error('Error al obtener el estado del trabajo:', error.response ? error.response.data : error.message);
+        throw error;
+    }
+}
+
+async function pollJobStatus(locationUrl) {
+    const interval = 5000; //Intervalo en milisegundos(5 segs)
+
+    const poll = setInterval(async () => {
+        try {
+            const status = await getStatusJob(locationUrl);
+            clearInterval(poll);
+            // Lógica para verificar el estado del trabajo
+            if (status.state === 'completed') {
+                console.log('El trabajo ha finalizado.');
+                clearInterval(poll);
+            } else if (status.state === 'failed') {
+                console.error('El trabajo ha fallado.');
+                clearInterval(poll);
+            } else {
+                console.log('El trabajo aun esta en progreso...');
+            }
+        } catch (error) {
+            console.error('Error durante el sondeo del estado del trabajo:', error.message);
+            clearInterval(poll);
+        }
+    }, interval);
+}
+
 async function startServer() {
     try {
         app.listen(port, () => {
@@ -147,7 +253,10 @@ async function startServer() {
         });
         await getToken(); // Esperar a obtener el token
         await preURI();  // Esperar a realizar la solicitud preURI
-        await uploadAsset(preURIUrl);
+        await uploadSamplePDF();
+        const jobLocation=await createJob(assetID);
+
+        pollJobStatus(locationURL);
     } catch (error) {
         console.error('Error al iniciar servidor: ', error);
     }
