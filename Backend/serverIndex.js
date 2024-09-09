@@ -232,7 +232,7 @@ async function pollJobStatus(locationUrl) {
                 console.log('El trabajo ha finalizado.');
 
                 // Intentar obtener el downloadUri desde content o resource
-                const downloadURI = status.content?.downloadUri || status.resource?.downloadUri;
+                downloadURI = status.content?.downloadUri || status.resource?.downloadUri;
 
                 console.log('Download URI:', downloadURI);
 
@@ -255,6 +255,16 @@ async function pollJobStatus(locationUrl) {
     }, interval);
 }
 
+function isValidURL(string) {
+    try {
+        // Intentar crear un nuevo objeto URL con la cadena
+        new URL(string);
+        return true;
+    } catch (_) {
+        // Si falla, la cadena no es una URL válida
+        return false;
+    }
+}
 
 async function downloadAsset(downloadURI) {
     try {
