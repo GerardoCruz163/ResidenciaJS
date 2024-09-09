@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { response } from 'express';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import { dirname } from 'path';
+import { clearInterval } from 'timers';
 
 
 dotenv.config();
@@ -24,9 +25,11 @@ const upload = multer({ storage });
 
 //TOKEN DE ACCESO GLOBAL
 let tokenAcceso='';
+
 let preURIUrl='';
 let assetID='';
 let locationURL='';//OBTENIDA DE CREATEJOB
+let downloadURI='';
 
 //OBTENER TOKEN NUEVO
 async function getToken(){
@@ -45,12 +48,9 @@ async function getToken(){
         const response = await axios.post(endpoint, params);
         //GUARDO EL TOKEN EN LA VARIABLE GLOBAL
         tokenAcceso =response.data.access_token;
-
-        
         //muestro el token nuevo en la consola
         console.log('Token de acceso nuevo: ',tokenAcceso);
         //console.log('Token expira en: ', tokenExpiraEn);
-
         return tokenAcceso;
     }catch(error){
         console.error('Error durante el proceso. Error: ', error);
@@ -59,7 +59,6 @@ async function getToken(){
 }  
 //SOLICITUD A PRE URI
 async function preURI() {
-
     try {
         //const port = process.env.PORT || 8080;
         const preURIEndpoint = `https://pdf-services-ue1.adobe.io/assets`;
@@ -75,7 +74,7 @@ async function preURI() {
         const response = await axios.post(preURIEndpoint, body, { headers });
         preURIUrl = response.data.uploadUri;
         assetID=response.data.assetID;
-        console.log('Respuesta de preURI: ', preURIUrl);
+        //console.log('Respuesta de preURI: ', preURIUrl);
         return preURIUrl;
     } catch (error) {
         console.log('Error capturado en el catch.');
@@ -133,7 +132,6 @@ app.post('/uploadAsset', upload.single('pdf'), async (req, res) => {
         if (!uploadUri) {
             return res.status(400).send('No se proporcionó la URL de subida.');
         }
-
         // Subir el archivo usando la URL proporcionada
         await uploadAsset(uploadUri, fileBuffer);
 
@@ -181,7 +179,7 @@ async function createJob(assetID) {
         const response = await axios.post(endpoint, jobData, { headers });
         const jobLocation = response.headers.location;
         locationURL = response.headers.location;
-        console.log('Trabajo creado exitosamente. Location:', jobLocation);
+        console.log('Trabajo creado. Location:', jobLocation);
         return jobLocation;
     } catch (error) {
         console.error('Error al crear el trabajo:', error.response ? error.response.data : error.message);
@@ -194,7 +192,8 @@ app.post('/createJob', async (req,res)=>{
         const jobLocation =await createJob(assetID);
 
         if (jobLocation) {
-            res.status(200).send({ message: 'Trabajo creado exitosamente.', location: jobLocation });
+            res.status(200).send({ message: 'Trabajo creado: ', location: jobLocation });
+            console.log('Locacion: ',jobLocation);
         } else {
             res.status(500).send({ message: 'Error al crear el trabajo.' });
         }
@@ -211,10 +210,10 @@ async function getStatusJob(locationURL){
             'Authorization': `Bearer ${tokenAcceso}`,
             'x-api-key': process.env.API_KEY
         }
-
         const response = await axios.get(locationURL,{headers});
-        console.log('Estado del trabajo:', response.data);
-        
+        //console.log('Estado del trabajo:', response.data);
+        downloadURI=response.data.downloadUri;
+        //downloadURI=response.data.downloadUri;
         return response.data;
     }catch(error){
         console.error('Error al obtener el estado del trabajo:', error.response ? error.response.data : error.message);
@@ -223,27 +222,55 @@ async function getStatusJob(locationURL){
 }
 
 async function pollJobStatus(locationUrl) {
-    const interval = 5000; //Intervalo en milisegundos(5 segs)
-
+    const interval = 5000; // Intervalo en milisegundos (8 segundos)
     const poll = setInterval(async () => {
         try {
             const status = await getStatusJob(locationUrl);
-            clearInterval(poll);
-            // Lógica para verificar el estado del trabajo
-            if (status.state === 'completed') {
+
+            // Verificar el estado del trabajo
+            if (status.status === 'done') {  // Cambiado a 'status.status'
                 console.log('El trabajo ha finalizado.');
-                clearInterval(poll);
-            } else if (status.state === 'failed') {
+
+                // Intentar obtener el downloadUri desde content o resource
+                const downloadURI = status.content?.downloadUri || status.resource?.downloadUri;
+
+                console.log('Download URI:', downloadURI);
+
+                if (downloadURI) {
+                    await downloadAsset(downloadURI);
+                } else {
+                    console.error('No se encontró un URI de descarga.');
+                }
+                clearInterval(poll); // Detener el sondeo solo cuando esté completado
+            } else if (status.status === 'failed') {  // Cambiado a 'status.status'
                 console.error('El trabajo ha fallado.');
-                clearInterval(poll);
+                clearInterval(poll); // Detener el sondeo en caso de fallo
             } else {
-                console.log('El trabajo aun esta en progreso...');
+                console.log('El trabajo aún está en progreso...');
             }
         } catch (error) {
             console.error('Error durante el sondeo del estado del trabajo:', error.message);
             clearInterval(poll);
         }
     }, interval);
+}
+
+
+async function downloadAsset(downloadURI) {
+    try {
+        //Verificar que downloadURI es válido
+        if (!downloadURI || !isValidURL(downloadURI)) {
+            throw new Error(`Invalid download URI: ${downloadURI}`);
+        }
+
+        //Hacer la solicitud GET a la URI
+        const response = await axios.get(downloadURI);
+        console.log('Respuesta JSON: ', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Error al descargar:', error.response ? error.response.data : error.message);
+        throw error;
+    }
 }
 
 async function startServer() {
@@ -257,6 +284,8 @@ async function startServer() {
         const jobLocation=await createJob(assetID);
 
         pollJobStatus(locationURL);
+        //console.log(downloadURI);
+        //downloadAsset(downloadURI);
     } catch (error) {
         console.error('Error al iniciar servidor: ', error);
     }
