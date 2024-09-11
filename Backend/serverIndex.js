@@ -25,12 +25,30 @@ const upload = multer({ storage });
 
 //TOKEN DE ACCESO GLOBAL
 let tokenAcceso='';
-
+let tknACCESS='';
 let preURIUrl='';
 let assetID='';
 let locationURL='';//OBTENIDA DE CREATEJOB
 let downloadURI='';
+let jsonGenerado='';
 
+
+function leerTokenDeArchivo() {
+    return new Promise((resolve, reject) => {
+        fs.readFile('TOKEN_ACCESO.json', 'utf-8', (err, data) => {
+            if (err) {
+                reject(err);
+            } else {
+                try {
+                    const jsonData = JSON.parse(data);
+                    resolve(jsonData.TOKEN);
+                } catch (parseErr) {
+                    reject(parseErr);
+                }
+            }
+        });
+    });
+}
 //OBTENER TOKEN NUEVO
 async function getToken(){
     try{
@@ -50,6 +68,18 @@ async function getToken(){
         tokenAcceso =response.data.access_token;
         //muestro el token nuevo en la consola
         console.log('Token de acceso nuevo: ',tokenAcceso);
+
+        tknACCESS ={
+            'TOKEN': tokenAcceso
+        };
+        const tkn=JSON.stringify(tknACCESS, null,2);
+        fs.writeFile('TOKEN_ACCESO.json', tkn, 'utf-8',(err)=>{
+            if (err) {
+                console.error('Error al guardar el TOKEN:', err);
+                return;
+            }
+            console.log('Archivo JSON token guardado');
+        });
         //console.log('Token expira en: ', tokenExpiraEn);
         return tokenAcceso;
     }catch(error){
@@ -68,8 +98,6 @@ async function preURI() {
             'x-api-key': process.env.API_KEY,
             'Content-Type': 'application/json'
         };
-        
-        console.log('\n');
 
         const response = await axios.post(preURIEndpoint, body, { headers });
         preURIUrl = response.data.uploadUri;
@@ -77,18 +105,14 @@ async function preURI() {
         //console.log('Respuesta de preURI: ', preURIUrl);
         return preURIUrl;
     } catch (error) {
-        console.log('Error capturado en el catch.');
-        console.error('Error durante la solicitud a /preURI:', {
-            message: error.message || 'No hay mensaje',
-            stack: error.stack || 'No hay traza',
-            config: error.config || 'No hay configuración',
-            code: error.code || 'No hay código de error',
-            response: error.response ? {
-                status: error.response.status,
-                data: error.response.data,
-                headers: error.response.headers
-            } : 'No hay respuesta'
-        });
+        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+            console.log('Token vencido. Generando uno nuevo');
+            tokenAcceso = await generarYGuardarNuevoToken(); // Generar un nuevo token y reintentar la solicitud
+            return await preURI(); // Reintentar la solicitud con el nuevo token
+        } else {
+            console.error('Error durante la solicitud a /preURI:', error);
+            throw error;
+        }
     }
 }
 // CARGA DEL ARCHIVO
@@ -109,7 +133,7 @@ async function uploadAsset(uploadUri, fileBuffer){
 //CARGA EL PDF DE EJEMPLO
 async function uploadSamplePDF() {
     try {
-        const sampleFilePath = path.join(__dirname, 'PDF_EJEMPLO.pdf');
+        const sampleFilePath = path.join(__dirname, 'FACTURA COMERCIAL 47558.pdf');
         const fileBuffer = fs.readFileSync(sampleFilePath);
 
         if (!preURIUrl) {
@@ -234,7 +258,7 @@ async function pollJobStatus(locationUrl) {
                 // Intentar obtener el downloadUri desde content o resource
                 downloadURI = status.content?.downloadUri || status.resource?.downloadUri;
 
-                console.log('Download URI:', downloadURI);
+                //console.log('Download URI:', downloadURI);
 
                 if (downloadURI) {
                     await downloadAsset(downloadURI);
@@ -275,7 +299,16 @@ async function downloadAsset(downloadURI) {
 
         //Hacer la solicitud GET a la URI
         const response = await axios.get(downloadURI);
-        console.log('Respuesta JSON: ', response.data);
+        jsonGenerado = JSON.stringify(response.data, null,2);
+
+        fs.writeFile('PDF_EXPORT.json', jsonGenerado, 'utf-8',(err)=>{
+            if (err) {
+                console.error('Error al guardar el archivo JSON:', err);
+                return;
+            }
+            console.log('Archivo JSON guardado');
+        });
+        //console.log('Respuesta JSON: ', jsonGenerado);
         return response.data;
     } catch (error) {
         console.error('Error al descargar:', error.response ? error.response.data : error.message);
@@ -288,8 +321,19 @@ async function startServer() {
         app.listen(port, () => {
             console.log(`Servidor en el puerto: ${port}`);
         });
-        await getToken(); // Esperar a obtener el token
-        await preURI();  // Esperar a realizar la solicitud preURI
+        try {
+            tokenAcceso = await leerTokenDeArchivo();
+            console.log('Token leido del archivo: ', tokenAcceso);
+
+            // Intentar hacer una petición a preURI con el token existente
+            await preURI();  // Esto verificará si el token es válido
+            console.log('Token valido, continuando con las demas peticiones...');
+        } catch (error) {
+            // Si hay un error, el token puede estar vencido o inválido, por lo tanto, generar uno nuevo
+            console.log('Token no es válido o ha expirado. Generando un nuevo token...');
+            tokenAcceso = await getToken();  // Generar y guardar un nuevo token
+            await preURI();
+        }
         await uploadSamplePDF();
         const jobLocation=await createJob(assetID);
 

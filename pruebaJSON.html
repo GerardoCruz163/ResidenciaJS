@@ -24,17 +24,19 @@
         
     </div>
     <div class = "botonesDiv">
-        <h1> Convierte Factura PDF a Formato xlsx (Excel)</h1>
+        
         <br>
-        <button class="btnImportar" onclick=""><img src="https://cdn-icons-png.flaticon.com/512/724/724831.png" alt="">Importar PDF</button>
+        <button class="btnImportar" onclick="uploadButton"><img src="https://cdn-icons-png.flaticon.com/512/724/724831.png" alt="">Cargar PDF</button>
         <button class= "btnExcel" onclick = "downloadExcel()"><img src="https://images.vexels.com/media/users/3/157561/isolated/preview/5077aba5e425c55dff227a93b655da7b-icono-de-descarga-simple.png">Descargar en xls (Excel)</button>
     </div>
 
     <div class="contenido">
         <div id="text-output"></div>
         <script>
+
+            
           //cargar el json
-          fetch('./pdf.json')
+          fetch('./Backend/PDF_EXPORT.json')
           .then(response => {
               if (!response.ok) {
                   throw new Error('ERROR de Respuesta');
@@ -215,10 +217,14 @@
             htmlExcel('dataTable', 'Datos_JSON');
           }
 
+
+
+
         </script>
 
         
     </div>
+    
 </body>
 </html>
 
