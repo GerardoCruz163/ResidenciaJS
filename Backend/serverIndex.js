@@ -107,7 +107,7 @@ async function preURI() {
     } catch (error) {
         if (error.response && (error.response.status === 401 || error.response.status === 403)) {
             console.log('Token vencido. Generando uno nuevo');
-            tokenAcceso = await generarYGuardarNuevoToken(); // Generar un nuevo token y reintentar la solicitud
+            tokenAcceso = await getToken(); // Generar un nuevo token y reintentar la solicitud
             return await preURI(); // Reintentar la solicitud con el nuevo token
         } else {
             console.error('Error durante la solicitud a /preURI:', error);
