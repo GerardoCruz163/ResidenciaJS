@@ -24,17 +24,16 @@
         
     </div>
     <div class = "botonesDiv">
-        
         <br>
-        <button class="btnImportar" onclick="uploadButton"><img src="https://cdn-icons-png.flaticon.com/512/724/724831.png" alt="">Cargar PDF</button>
+        <button class="btnImportar" onclick="iniciarServidor()"><img src="https://cdn-icons-png.flaticon.com/512/724/724831.png" alt="">
+            Cargar PDF
+        </button>
         <button class= "btnExcel" onclick = "downloadExcel()"><img src="https://images.vexels.com/media/users/3/157561/isolated/preview/5077aba5e425c55dff227a93b655da7b-icono-de-descarga-simple.png">Descargar en xls (Excel)</button>
     </div>
 
     <div class="contenido">
         <div id="text-output"></div>
         <script>
-
-            
           //cargar el json
           fetch('./Backend/PDF_EXPORT.json')
           .then(response => {
@@ -217,11 +216,9 @@
             htmlExcel('dataTable', 'Datos_JSON');
           }
 
-
-
-
         </script>
-
+        <script src="./Backend/serverIndex.js">
+        </script>
         
     </div>
     

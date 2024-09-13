@@ -78,7 +78,7 @@ async function getToken(){
                 console.error('Error al guardar el TOKEN:', err);
                 return;
             }
-            console.log('Archivo JSON token guardado');
+            console.log('\nArchivo JSON token guardado\n');
         });
         //console.log('Token expira en: ', tokenExpiraEn);
         return tokenAcceso;
@@ -106,7 +106,7 @@ async function preURI() {
         return preURIUrl;
     } catch (error) {
         if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-            console.log('Token vencido. Generando uno nuevo');
+            console.log('Token no valido. Generando uno nuevo\n');
             tokenAcceso = await getToken(); // Generar un nuevo token y reintentar la solicitud
             return await preURI(); // Reintentar la solicitud con el nuevo token
         } else {
@@ -124,7 +124,7 @@ async function uploadAsset(uploadUri, fileBuffer){
         };
 
         const response = await axios.put(uploadUri, fileBuffer, { headers })
-        console.log('Archivo importado! ', response.status);
+        console.log('\nArchivo importado! ', response.status,'\n');
         console.log('')
     }catch(error) {
         console.error('Error al subir el archivo:', error.response ? error.response.data : error.message);
@@ -133,7 +133,7 @@ async function uploadAsset(uploadUri, fileBuffer){
 //CARGA EL PDF DE EJEMPLO
 async function uploadSamplePDF() {
     try {
-        const sampleFilePath = path.join(__dirname, 'FACTURA COMERCIAL 47558.pdf');
+        const sampleFilePath = path.join(__dirname, 'COMP DE SISTEMAS OP 19100163.pdf');
         const fileBuffer = fs.readFileSync(sampleFilePath);
 
         if (!preURIUrl) {
@@ -154,12 +154,12 @@ app.post('/uploadAsset', upload.single('pdf'), async (req, res) => {
         const uploadUri = req.body.uploadUri; // Debes proporcionar la URL de subida
 
         if (!uploadUri) {
-            return res.status(400).send('No se proporcionó la URL de subida.');
+            return res.status(400).send('No se proporciono la URL de subida.');
         }
         // Subir el archivo usando la URL proporcionada
         await uploadAsset(uploadUri, fileBuffer);
 
-        res.status(200).send('Archivo subido con éxito.');
+        res.status(200).send('Archivo subido con correctamente.');
     } catch (error) {
         console.error('Error en la ruta /uploadAsset:', error.message);
         res.status(500).send('Error al subir el archivo.');
@@ -346,3 +346,4 @@ async function startServer() {
 }
 
 startServer();
+
