@@ -36,7 +36,9 @@ body{
   font-style: italic;
   border-radius: 10px;
 }
-
+.inputFile1{
+  backdrop-filter: 10px;
+}
 .contenido{
   position:absolute;
   left: 2%;
@@ -56,7 +58,7 @@ body{
   border: 4px solid #77c5be;
 }
 /* Estilo para el botón */
-.btnExcel, .btnImportar {
+.btnExcel {
     display: flex;
     align-items: center;
     justify-content: center;

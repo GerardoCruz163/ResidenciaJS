@@ -24,10 +24,8 @@
         
     </div>
     <div class = "botonesDiv">
+        <input class="inputFile1" type="file" id="fileUp-input" onchange="subir()" value="Cargar PDF" multiple>
         <br>
-        <button class="btnImportar" onclick="iniciarServidor()"><img src="https://cdn-icons-png.flaticon.com/512/724/724831.png" alt="">
-            Cargar PDF
-        </button>
         <button class= "btnExcel" onclick = "downloadExcel()"><img src="https://images.vexels.com/media/users/3/157561/isolated/preview/5077aba5e425c55dff227a93b655da7b-icono-de-descarga-simple.png">Descargar en xls (Excel)</button>
     </div>
 
@@ -216,8 +214,27 @@
             htmlExcel('dataTable', 'Datos_JSON');
           }
 
+          function subir(){
+            var i=document.getElementById('fileUp-input');
+         
+            if(window.FileReader){
+                for(var j=0;j<i.files.length;j++){//como mi input file es múltiple, recorro sus elementos (archivos) que pueden ser varios
+                    var reader = new FileReader();//instanciamos FileReader
+                    reader.onloadend = (function(f){//creamos la función que recogerá los datos
+                        return function(e){
+                            var content = e.target.result.split(",",2)[1];//obtenemos el contenido del archivo, estará codificado en Base64
+                            enviarArchivo(f.name,content);
+                        }
+                    })(i.files[j]);
+                    reader.readAsDataURL(i.files[j]);//
+                }
+            }
+        }
+
         </script>
+
         <script src="./Backend/serverIndex.js">
+
         </script>
         
     </div>

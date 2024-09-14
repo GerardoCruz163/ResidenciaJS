@@ -133,7 +133,7 @@ async function uploadAsset(uploadUri, fileBuffer){
 //CARGA EL PDF DE EJEMPLO
 async function uploadSamplePDF() {
     try {
-        const sampleFilePath = path.join(__dirname, 'COMP DE SISTEMAS OP 19100163.pdf');
+        const sampleFilePath = path.join(__dirname, 'FACTURA COMERCIAL 47558.pdf');
         const fileBuffer = fs.readFileSync(sampleFilePath);
 
         if (!preURIUrl) {
@@ -346,4 +346,3 @@ async function startServer() {
 }
 
 startServer();
-
