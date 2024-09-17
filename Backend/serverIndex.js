@@ -88,7 +88,7 @@ async function getToken(){
     }
 }  
 //SOLICITUD A PRE URI
-async function preURI() {
+    async function preURI() {
     try {
         //const port = process.env.PORT || 8080;
         const preURIEndpoint = `https://pdf-services-ue1.adobe.io/assets`;
@@ -123,9 +123,9 @@ async function uploadAsset(uploadUri, fileBuffer){
             'Content-Type': 'application/pdf'
         };
 
-        const response = await axios.put(uploadUri, fileBuffer, { headers })
+        const response = await axios.put(uploadUri, fileBuffer, { headers });
         console.log('\nArchivo importado! ', response.status,'\n');
-        console.log('')
+        console.log('');
     }catch(error) {
         console.error('Error al subir el archivo:', error.response ? error.response.data : error.message);
     }
@@ -148,23 +148,23 @@ async function uploadSamplePDF() {
 }
 
 // RUTA PARA RECIBIR EL ARCHIVO Y SUBIRLO
-app.post('/uploadAsset', upload.single('pdf'), async (req, res) => {
-    try {
-        const fileBuffer = req.file.buffer; // Archivo PDF en binario
-        const uploadUri = req.body.uploadUri; // Debes proporcionar la URL de subida
+// app.post('/uploadAsset', upload.single('pdf'), async (req, res) => {
+//     try {
+//         const fileBuffer = req.file.buffer; // Archivo PDF en binario
+//         const uploadUri = req.body.uploadUri; // Debes proporcionar la URL de subida
 
-        if (!uploadUri) {
-            return res.status(400).send('No se proporciono la URL de subida.');
-        }
-        // Subir el archivo usando la URL proporcionada
-        await uploadAsset(uploadUri, fileBuffer);
+//         if (!uploadUri) {
+//             return res.status(400).send('No se proporciono la URL de subida.');
+//         }
+//         // Subir el archivo usando la URL proporcionada
+//         await uploadAsset(uploadUri, fileBuffer);
 
-        res.status(200).send('Archivo subido con correctamente.');
-    } catch (error) {
-        console.error('Error en la ruta /uploadAsset:', error.message);
-        res.status(500).send('Error al subir el archivo.');
-    }
-});
+//         res.status(200).send('Archivo subido con correctamente.');
+//     } catch (error) {
+//         console.error('Error en la ruta /uploadAsset:', error.message);
+//         res.status(500).send('Error al subir el archivo.');
+//     }
+// });
 
 async function createJob(assetID) {
     try {
