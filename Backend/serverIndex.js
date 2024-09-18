@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import { dirname } from 'path';
 import { clearInterval } from 'timers';
+import cors from 'cors';
 
 
 dotenv.config();
@@ -147,24 +148,6 @@ async function uploadSamplePDF() {
     }
 }
 
-// RUTA PARA RECIBIR EL ARCHIVO Y SUBIRLO
-// app.post('/uploadAsset', upload.single('pdf'), async (req, res) => {
-//     try {
-//         const fileBuffer = req.file.buffer; // Archivo PDF en binario
-//         const uploadUri = req.body.uploadUri; // Debes proporcionar la URL de subida
-
-//         if (!uploadUri) {
-//             return res.status(400).send('No se proporciono la URL de subida.');
-//         }
-//         // Subir el archivo usando la URL proporcionada
-//         await uploadAsset(uploadUri, fileBuffer);
-
-//         res.status(200).send('Archivo subido con correctamente.');
-//     } catch (error) {
-//         console.error('Error en la ruta /uploadAsset:', error.message);
-//         res.status(500).send('Error al subir el archivo.');
-//     }
-// });
 
 async function createJob(assetID) {
     try {
@@ -209,23 +192,6 @@ async function createJob(assetID) {
         console.error('Error al crear el trabajo:', error.response ? error.response.data : error.message);
     }
 }
-//RUTA PARA CREATEJOB
-app.post('/createJob', async (req,res)=>{
-    try{
-        const assetID=await preURI();
-        const jobLocation =await createJob(assetID);
-
-        if (jobLocation) {
-            res.status(200).send({ message: 'Trabajo creado: ', location: jobLocation });
-            console.log('Locacion: ',jobLocation);
-        } else {
-            res.status(500).send({ message: 'Error al crear el trabajo.' });
-        }
-    }catch(error){
-        console.error('Error en la ruta /createJob:', error.message);
-        res.status(500).send('Error al crear el trabajo.');
-    }
-});
 
 //getStatusJob
 async function getStatusJob(locationURL){
@@ -279,7 +245,7 @@ async function pollJobStatus(locationUrl) {
     }, interval);
 }
 
-function isValidURL(string) {
+function URLValida(string) {
     try {
         // Intentar crear un nuevo objeto URL con la cadena
         new URL(string);
@@ -293,10 +259,9 @@ function isValidURL(string) {
 async function downloadAsset(downloadURI) {
     try {
         //Verificar que downloadURI es válido
-        if (!downloadURI || !isValidURL(downloadURI)) {
-            throw new Error(`Invalid download URI: ${downloadURI}`);
+        if (!downloadURI || !URLValida(downloadURI)) {
+            throw new Error(`URI de descarga Invalido: ${downloadURI}`);
         }
-
         //Hacer la solicitud GET a la URI
         const response = await axios.get(downloadURI);
         jsonGenerado = JSON.stringify(response.data, null,2);
@@ -344,5 +309,4 @@ async function startServer() {
         console.error('Error al iniciar servidor: ', error);
     }
 }
-
 startServer();
