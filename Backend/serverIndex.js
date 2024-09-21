@@ -9,20 +9,21 @@ import multer from 'multer';
 import { dirname } from 'path';
 import { clearInterval } from 'timers';
 import cors from 'cors';
-
+import { spawn } from 'child_process';
 
 dotenv.config();
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 8080;
-
 app.use(express.json());
 
+app.use(cors());
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({ dest: 'uploads/' });
 
 //TOKEN DE ACCESO GLOBAL
 let tokenAcceso='';
@@ -33,6 +34,29 @@ let locationURL='';//OBTENIDA DE CREATEJOB
 let downloadURI='';
 let jsonGenerado='';
 
+app.post('/upload', upload.single('pdfFile'), async (req, res) => {
+    console.log('Ruta /upload recibida')
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'No se ha proporcionado ningún archivo.' });
+        }
+
+        // Aquí procesas el archivo subido
+        const filePath = req.file.path; // Ruta temporal del archivo subido
+        const fileBuffer = fs.readFileSync(filePath); // Leemos el archivo subido
+        
+        // Simulamos lo que hace tu función uploadSamplePDF
+        if (!preURIUrl) {
+            throw new Error('URL de subida no disponible.');
+        }
+
+        await uploadAsset(preURIUrl, fileBuffer);
+        res.status(200).json({ message: 'Archivo PDF subido y procesado exitosamente.' });
+    } catch (error) {
+        console.error('Error al subir el archivo PDF:', error.message);
+        res.status(500).json({ message: 'Error al procesar el archivo PDF.' });
+    }
+});
 
 function leerTokenDeArchivo() {
     return new Promise((resolve, reject) => {

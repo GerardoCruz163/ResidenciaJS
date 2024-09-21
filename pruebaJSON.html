@@ -221,10 +221,13 @@
                 for(var j=0;j<i.files.length;j++){//como mi input file es múltiple, recorro sus elementos (archivos) que pueden ser varios
                     var reader = new FileReader();//instanciamos FileReader
                     reader.onloadend = (function(f){//creamos la función que recogerá los datos
-                        return function(e){
-                            var content = e.target.result.split(",",2)[1];//obtenemos el contenido del archivo, estará codificado en Base64
-                            //enviarArchivo(f.name,content);
-                        }
+                        console.log("Contenido de e.target.result:", e.target.result); // Para ver qué hay en e.target.result
+                    if (e.target.result.includes(",")) { // Verifica si hay una coma en el resultado
+                        var content = e.target.result.split(",", 2)[1];
+                        console.log("Contenido codificado en base64:", content);
+                    } else {
+                        console.error("El archivo no tiene el formato esperado.");
+                    }
                     })(i.files[j]);
                     reader.readAsDataURL(i.files[j]);//
                 }
@@ -233,9 +236,41 @@
 
         </script>
 
-        <script src="./Backend/serverIndex.js">
-
+        <script>
+            function subir() {
+                const fileInput = document.getElementById('fileUp-input');
+                const file = fileInput.files[0];
+        
+                if (!file) {
+                    alert('Por favor, selecciona un archivo.');
+                    return;
+                }
+        
+                const formData = new FormData();
+                formData.append('pdfFile', file);
+        
+                fetch('http://localhost:8081/upload', {
+                    method: 'POST',
+                    body: formData,
+                })
+                .then(response => {
+                    console.log("Codigo HTTP: ", response.status);
+                    if (!response.ok) {
+                        throw new Error('Error en la carga del archivo.'); //aqui marca el error
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(data.message);
+                    alert('Archivo subido y procesado exitosamente.');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al subir el archivo.');
+                });
+            }
         </script>
+        
         
     </div>
     
