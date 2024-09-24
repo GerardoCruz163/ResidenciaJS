@@ -51,6 +51,8 @@ app.post('/upload', upload.single('pdfFile'), async (req, res) => {
         }
 
         await uploadAsset(preURIUrl, fileBuffer);
+
+        await startServer();
         res.status(200).json({ message: 'Archivo PDF subido y procesado exitosamente.' });
     } catch (error) {
         console.error('Error al subir el archivo PDF:', error.message);
@@ -105,7 +107,6 @@ async function getToken(){
             }
             console.log('\nArchivo JSON token guardado\n');
         });
-        //console.log('Token expira en: ', tokenExpiraEn);
         return tokenAcceso;
     }catch(error){
         console.error('Error durante el proceso. Error: ', error);
@@ -115,24 +116,26 @@ async function getToken(){
 //SOLICITUD A PRE URI
     async function preURI() {
     try {
-        //const port = process.env.PORT || 8080;
         const preURIEndpoint = `https://pdf-services-ue1.adobe.io/assets`;
         const body = { 'mediaType': 'application/pdf' };
+        //CREDENCIALES
         const headers = {
             'Authorization': `Bearer ${tokenAcceso}`,
             'x-api-key': process.env.API_KEY,
             'Content-Type': 'application/json'
         };
-
+        //SE REALIZA LA PETICION
         const response = await axios.post(preURIEndpoint, body, { headers });
+        //SE OBTIENE EL PREURI URL Y ASSET ID
         preURIUrl = response.data.uploadUri;
         assetID=response.data.assetID;
-        //console.log('Respuesta de preURI: ', preURIUrl);
         return preURIUrl;
     } catch (error) {
+        //VERIFICAR SI EL TOKEN ES VALIDO O VIGENTE
         if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+            //SI SE PRODUCE UN ERROR 401 O 403, ES PORQUE EL TOKEN NO ES VALIDO O YA VENCIO
             console.log('Token no valido. Generando uno nuevo\n');
-            tokenAcceso = await getToken(); // Generar un nuevo token y reintentar la solicitud
+            tokenAcceso = await getToken(); // GENERA UN NUEVO TOKEN Y REINTENTA LA PETICION
             return await preURI(); // Reintentar la solicitud con el nuevo token
         } else {
             console.error('Error durante la solicitud a /preURI:', error);
@@ -144,10 +147,11 @@ async function getToken(){
 //SUBIR ARCHIVO
 async function uploadAsset(uploadUri, fileBuffer){
     try{
+        //SE INGRESA EN ENCABEZADO REQUERIDO
         const headers= {
             'Content-Type': 'application/pdf'
         };
-
+        // SE REALIZA LA PETICION
         const response = await axios.put(uploadUri, fileBuffer, { headers });
         console.log('\nArchivo importado! ', response.status,'\n');
         console.log('');
@@ -158,9 +162,9 @@ async function uploadAsset(uploadUri, fileBuffer){
 //CARGA EL PDF DE EJEMPLO
 async function uploadSamplePDF() {
     try {
-        const sampleFilePath = path.join(__dirname, 'FACTURA COMERCIAL 47558.pdf');
+        const sampleFilePath = path.join(__dirname, '/uploads/8f58c16373aae345478a137531026063');
         const fileBuffer = fs.readFileSync(sampleFilePath);
-
+        
         if (!preURIUrl) {
             throw new Error('URL de subida no disponible.');
         }
@@ -207,8 +211,10 @@ async function createJob(assetID) {
             'x-api-key': process.env.API_KEY,
             'Content-Type': 'application/json'
         };
+        //SE REALIZA LA PETICION
         const response = await axios.post(endpoint, jobData, { headers });
         const jobLocation = response.headers.location;
+        //SE OBTIENE LOCATION URL
         locationURL = response.headers.location;
         console.log('Trabajo creado. Location:', jobLocation);
         return jobLocation;
@@ -220,12 +226,14 @@ async function createJob(assetID) {
 //getStatusJob
 async function getStatusJob(locationURL){
     try{
+        //CARGA DE CREDENCIALES
         const headers={
             'Authorization': `Bearer ${tokenAcceso}`,
             'x-api-key': process.env.API_KEY
         }
+        //SE REALIZA LA PETICION
         const response = await axios.get(locationURL,{headers});
-        //console.log('Estado del trabajo:', response.data);
+        //SE OBTIENE EL DOWNLOAD URI COMO RESPUESTA
         downloadURI=response.data.downloadUri;
         //downloadURI=response.data.downloadUri;
         return response.data;
@@ -236,31 +244,28 @@ async function getStatusJob(locationURL){
 }
 
 async function pollJobStatus(locationUrl) {
-    const interval = 5000; // Intervalo en milisegundos (8 segundos)
+    const interval = 5000; //Intervalo en milisegundos (5 segundos)
     const poll = setInterval(async () => {
         try {
             const status = await getStatusJob(locationUrl);
 
-            // Verificar el estado del trabajo
-            if (status.status === 'done') {  // Cambiado a 'status.status'
+            // SE VERIFICA EL ESTADO DEL TRABAJO
+            if (status.status === 'done') { 
                 console.log('El trabajo ha finalizado.');
-
-                // Intentar obtener el downloadUri desde content o resource
+                //SE OBTIENE DOWNLOADURI
                 downloadURI = status.content?.downloadUri || status.resource?.downloadUri;
-
-                //console.log('Download URI:', downloadURI);
-
                 if (downloadURI) {
+                    //SE REALIZA LA PETICION A DOWNLOAD ASSET
                     await downloadAsset(downloadURI);
                 } else {
                     console.error('No se encontró un URI de descarga.');
                 }
-                clearInterval(poll); // Detener el sondeo solo cuando esté completado
-            } else if (status.status === 'failed') {  // Cambiado a 'status.status'
+                clearInterval(poll); //SE DETIENE EL SONDEO CUANDO SE TERMINA EL PROCESO
+            } else if (status.status === 'failed') { 
                 console.error('El trabajo ha fallado.');
-                clearInterval(poll); // Detener el sondeo en caso de fallo
+                clearInterval(poll); //DETENER EL SONDEO EN CASO DE FALLO
             } else {
-                console.log('El trabajo aún está en progreso...');
+                console.log('El trabajo aún está en progreso...'); //PROCESO DEL TRABAJO
             }
         } catch (error) {
             console.error('Error durante el sondeo del estado del trabajo:', error.message);
@@ -282,14 +287,15 @@ function URLValida(string) {
 
 async function downloadAsset(downloadURI) {
     try {
-        //Verificar que downloadURI es válido
+        //VERIFICAR QUE LA URL SEA VALIDA
         if (!downloadURI || !URLValida(downloadURI)) {
             throw new Error(`URI de descarga Invalido: ${downloadURI}`);
         }
-        //Hacer la solicitud GET a la URI
+        //REALIZAR PETICION A LA URL
         const response = await axios.get(downloadURI);
+        //SE OBTIENE EL JSON GENERADO
         jsonGenerado = JSON.stringify(response.data, null,2);
-
+        //SE GENERA UN ARCHIVO JSON, DONDE SE GUARDARA EL JSON GENERADO Y SE GUARDA EN EL DIRECTORIO
         fs.writeFile('PDF_EXPORT.json', jsonGenerado, 'utf-8',(err)=>{
             if (err) {
                 console.error('Error al guardar el archivo JSON:', err);
@@ -297,7 +303,6 @@ async function downloadAsset(downloadURI) {
             }
             console.log('Archivo JSON guardado');
         });
-        //console.log('Respuesta JSON: ', jsonGenerado);
         return response.data;
     } catch (error) {
         console.error('Error al descargar:', error.response ? error.response.data : error.message);
